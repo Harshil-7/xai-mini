@@ -62,7 +62,6 @@ class EdgeMask(torch.nn.Module):
 
 
 def explain(model, data, node, device):
-
     x, ei, et, idx, subset = subgraph(node, data)
 
     x, ei, et = x.to(device), ei.to(device), et.to(device)
@@ -70,38 +69,31 @@ def explain(model, data, node, device):
     with torch.no_grad():
         pred = model(x, ei, et)[idx].argmax().item()
 
-    num_edges = ei.size(1)
-    edge_mask_model = EdgeMask(num_edges).to(device)
-    opt = torch.optim.Adam(edge_mask_model.parameters(), lr=0.05)
+    # IMPORTANT: compute hidden dim FIRST
+    with torch.no_grad():
+        h = model.conv1(x, ei, et).relu()
+
+    mlp = MLP(h.size(1)).to(device)
+    opt = torch.optim.Adam(mlp.parameters(), lr=0.01)
 
     src, dst = ei
 
-    for _ in range(200):
-
+    for _ in range(100):
         opt.zero_grad()
 
-        mask = edge_mask_model()
+        h = model.conv1(x, ei, et).relu()
 
-        # apply mask (simple gating)
-        x1 = model.conv1(x, ei, et)
-        x1 = x1.relu()
+        mask = mlp(h[src], h[dst])
 
-        x1 = x1 * mask[src].unsqueeze(-1)
-
-        out = model.conv2(x1, ei, et)
-
+        out = model.conv2(h, ei, et)
         logp = F.log_softmax(out, dim=1)
 
-        fidelity_loss = -logp[idx, pred]
-
-        sparsity = 0.01 * mask.sum()
-
-        loss = fidelity_loss + sparsity
+        loss = -logp[idx, pred] + 0.01 * mask.sum()
 
         loss.backward()
         opt.step()
 
-    return edge_mask_model().detach().cpu(), pred
+    return mask.detach().cpu(), pred
 
 
 # ---------------------------
