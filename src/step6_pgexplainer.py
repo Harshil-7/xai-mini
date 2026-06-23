@@ -5,11 +5,11 @@ import pickle
 
 import config
 from step3_train_rgcn import FastRGCN
-from torch_geometric.explain import Explainer, PGExplainer
+from torch_geometric.utils import k_hop_subgraph
 
 
 # -----------------------------
-# load model + data
+# LOAD
 # -----------------------------
 def load():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,7 +29,78 @@ def load():
 
 
 # -----------------------------
-# main
+# SUBGRAPH
+# -----------------------------
+def subgraph(node, data):
+    subset, edge_index, mapping, edge_mask = k_hop_subgraph(
+        node_idx=node,
+        num_hops=2,
+        edge_index=data.edge_index,
+        relabel_nodes=True,
+        num_nodes=data.x.size(0),
+    )
+
+    return (
+        data.x[subset],
+        edge_index,
+        data.edge_type[edge_mask],
+        mapping.item(),
+        subset,
+    )
+
+
+# -----------------------------
+# EDGE MLP (PGExplainer style)
+# -----------------------------
+class EdgeMLP(torch.nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.net = torch.nn.Sequential(
+            torch.nn.Linear(2 * dim, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 1),
+        )
+
+    def forward(self, h_src, h_dst):
+        return torch.sigmoid(self.net(torch.cat([h_src, h_dst], dim=-1))).squeeze()
+
+
+# -----------------------------
+# EXPLAIN ONE NODE
+# -----------------------------
+def explain(model, data, node, device):
+    x, ei, et, idx, subset = subgraph(node, data)
+
+    x, ei, et = x.to(device), ei.to(device), et.to(device)
+
+    src, dst = ei
+
+    with torch.no_grad():
+        pred = model(x, ei, et)[idx].argmax().item()
+
+    mlp = EdgeMLP(x.size(1)).to(device)
+    opt = torch.optim.Adam(mlp.parameters(), lr=0.01)
+
+    for _ in range(100):
+        opt.zero_grad()
+
+        h = model.conv1(x, ei, et).relu()
+
+        mask = mlp(h[src], h[dst])
+
+        out = model.conv2(h, ei, et)
+        logp = F.log_softmax(out, dim=1)
+
+        loss = -logp[idx, pred] + 0.01 * mask.mean()
+
+        loss.backward()
+        opt.step()
+
+    return mask.detach().cpu(), pred
+
+
+# -----------------------------
+# MAIN
 # -----------------------------
 def main():
     model, data, mappings, device = load()
@@ -37,75 +108,26 @@ def main():
     inv_nodes = {v: k for k, v in mappings["nodes_dict"].items()}
     inv_labels = {v: k for k, v in mappings["labels_dict"].items()}
 
-    # -----------------------------
-    # PGExplainer setup (IMPORTANT FIX)
-    # -----------------------------
-    explainer = Explainer(
-        model=model,
-        algorithm=PGExplainer(
-            epochs=30,
-            lr=0.003,
-        ),
-        explanation_type="phenomenon",
-        edge_mask_type="object",
-        model_config=dict(
-            mode="multiclass_classification",
-            task_level="node",
-            return_type="log_probs",
-        ),
-    )
-
     nodes = data.test_idx[:config.NUM_NODES_TO_EXPLAIN].tolist()
-
-    print("[PG] Training PGExplainer...")
-
-    # -----------------------------
-    # TRAIN (FIXED API)
-    # -----------------------------
-    for epoch in range(30):
-        for n in nodes:
-            with torch.no_grad():
-                out = model(data.x, data.edge_index, data.edge_type)
-                target = out[n].argmax()
-
-            explainer.algorithm.train(
-            epoch,
-            model,
-            x=data.x,
-            edge_index=data.edge_index,
-            target=target,
-            )
-
-    print("[PG] Generating explanations...")
 
     results = []
 
-    # -----------------------------
-    # EXPLAIN
-    # -----------------------------
-    for n in nodes:
-        exp = explainer(
-            x=data.x,
-            edge_index=data.edge_index,
-            edge_type=data.edge_type,
-            index=n,
-        )
+    print("[PG-MLP] Running explanations...")
 
-        edge_mask = exp.edge_mask
+    for n in nodes:
+        mask, pred = explain(model, data, n, device)
 
         true = inv_labels[int(
             data.test_y[(data.test_idx == n).nonzero()[0, 0]]
         )]
 
-        pred = model(data.x, data.edge_index, data.edge_type)[n].argmax().item()
-
-        print(f"{n} | pred={pred} | true={true} | mask_mean={edge_mask.mean().item():.4f}")
+        print(f"{n} | pred={pred} | true={true} | mask_mean={mask.mean().item():.4f}")
 
         results.append({
             "node": int(n),
             "pred": int(pred),
             "true": true,
-            "mask_mean": float(edge_mask.mean()),
+            "mask_mean": float(mask.mean())
         })
 
     pd.DataFrame(results).to_csv(
