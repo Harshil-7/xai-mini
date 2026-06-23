@@ -69,11 +69,11 @@ def main():
                 target = out[n].argmax()
 
             explainer.algorithm.train(
-                epoch,
-                model,
-                data.x,
-                data.edge_index,
-                target=target,
+            epoch,
+            model,
+            x=data.x,
+            edge_index=data.edge_index,
+            target=target,
             )
 
     print("[PG] Generating explanations...")
