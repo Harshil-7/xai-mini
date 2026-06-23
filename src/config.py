@@ -14,16 +14,17 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DATA_RAW_DIR = os.path.join(ROOT_DIR, "data", "raw")
 DATA_PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
+MODELS_DIR = os.path.join(ROOT_DIR, "models")
 RESULTS_FIGURES_DIR = os.path.join(ROOT_DIR, "results", "figures")
 RESULTS_TABLES_DIR = os.path.join(ROOT_DIR, "results", "tables")
 
 GRAPH_FILE = os.path.join(DATA_RAW_DIR, "dbpedia_subset.nt.gz")
-LABELS_FILE = os.path.join(DATA_RAW_DIR, "labels.tsv")
-TRAIN_FILE = os.path.join(DATA_RAW_DIR, "train.tsv")
-TEST_FILE = os.path.join(DATA_RAW_DIR, "test.tsv")
-MODEL_FILE = os.path.join(DATA_PROCESSED_DIR, "rgcn_model.pt")
+LABELS_FILE = os.path.join(DATA_PROCESSED_DIR, "labels.tsv")
+TRAIN_FILE = os.path.join(DATA_PROCESSED_DIR, "train.tsv")
+TEST_FILE = os.path.join(DATA_PROCESSED_DIR, "test.tsv")
+MODEL_FILE = os.path.join(MODELS_DIR, "rgcn_model.pt")
 
-for d in (DATA_RAW_DIR, DATA_PROCESSED_DIR, RESULTS_FIGURES_DIR, RESULTS_TABLES_DIR):
+for d in (DATA_RAW_DIR, DATA_PROCESSED_DIR, MODELS_DIR, RESULTS_FIGURES_DIR, RESULTS_TABLES_DIR):
     os.makedirs(d, exist_ok=True)
 
 # ---------------------------------------------------------------------------
