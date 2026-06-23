@@ -8,6 +8,9 @@ from step3_train_rgcn import FastRGCN
 from torch_geometric.explain import Explainer, PGExplainer
 
 
+# -----------------------------
+# load model + data
+# -----------------------------
 def load():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,12 +28,24 @@ def load():
     return model, data, mappings, device
 
 
+# -----------------------------
+# main
+# -----------------------------
 def main():
     model, data, mappings, device = load()
 
+    inv_nodes = {v: k for k, v in mappings["nodes_dict"].items()}
+    inv_labels = {v: k for k, v in mappings["labels_dict"].items()}
+
+    # -----------------------------
+    # PGExplainer setup (IMPORTANT FIX)
+    # -----------------------------
     explainer = Explainer(
         model=model,
-        algorithm=PGExplainer(epochs=30, lr=0.003),
+        algorithm=PGExplainer(
+            epochs=30,
+            lr=0.003,
+        ),
         explanation_type="phenomenon",
         edge_mask_type="object",
         model_config=dict(
@@ -38,45 +53,62 @@ def main():
             task_level="node",
             return_type="log_probs",
         ),
-    ).to(device)
+    )
 
     nodes = data.test_idx[:config.NUM_NODES_TO_EXPLAIN].tolist()
 
-    records = []
-
     print("[PG] Training PGExplainer...")
-    
-    # IMPORTANT: training happens on FULL GRAPH
-    for node in nodes:
-        label = model(data.x, data.edge_index, data.edge_type)[node].argmax()
 
-        explainer.algorithm.train(
-            model=model,
-            x=data.x,
-            edge_index=data.edge_index,
-            target=label
-        )
+    # -----------------------------
+    # TRAIN (FIXED API)
+    # -----------------------------
+    for epoch in range(30):
+        for n in nodes:
+            with torch.no_grad():
+                out = model(data.x, data.edge_index, data.edge_type)
+                target = out[n].argmax()
+
+            explainer.algorithm.train(
+                epoch,
+                model,
+                data.x,
+                data.edge_index,
+                target=target,
+            )
 
     print("[PG] Generating explanations...")
 
-    for node in nodes:
-        explanation = explainer(
+    results = []
+
+    # -----------------------------
+    # EXPLAIN
+    # -----------------------------
+    for n in nodes:
+        exp = explainer(
             x=data.x,
             edge_index=data.edge_index,
             edge_type=data.edge_type,
-            index=node,
+            index=n,
         )
 
-        edge_mask = explanation.edge_mask
+        edge_mask = exp.edge_mask
 
-        records.append({
-            "node": int(node),
+        true = inv_labels[int(
+            data.test_y[(data.test_idx == n).nonzero()[0, 0]]
+        )]
+
+        pred = model(data.x, data.edge_index, data.edge_type)[n].argmax().item()
+
+        print(f"{n} | pred={pred} | true={true} | mask_mean={edge_mask.mean().item():.4f}")
+
+        results.append({
+            "node": int(n),
+            "pred": int(pred),
+            "true": true,
             "mask_mean": float(edge_mask.mean()),
         })
 
-        print(f"Node {node} done")
-
-    pd.DataFrame(records).to_csv(
+    pd.DataFrame(results).to_csv(
         f"{config.RESULTS_TABLES_DIR}/pg_explanations.csv",
         index=False
     )
