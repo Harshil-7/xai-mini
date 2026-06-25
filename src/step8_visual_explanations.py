@@ -37,18 +37,17 @@ plt.show()
 
 # --------------------- 3. Fidelity vs Sparsity ---------------------
 
-eval_df = pd.read_csv("results/tables/explanation_evaluation.csv")
+eval_df["fidelity"] = (eval_df["fidelity_plus"] - eval_df["fidelity_minus"]).abs()
 
 plt.figure()
 plt.scatter(eval_df["sparsity"], eval_df["fidelity"])
 plt.title("Fidelity vs Sparsity Trade-off")
-plt.xlabel("Sparsity")
-plt.ylabel("Fidelity")
+plt.xlabel("Sparsity (higher = simpler explanation)")
+plt.ylabel("Fidelity (difference-based score)")
 plt.tight_layout()
 
 plt.savefig("results/figures/fidelity_sparsity.png")
 plt.show()
-
 
 # --------------------- 4. Distribution ---------------------
 
