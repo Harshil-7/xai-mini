@@ -1,7 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# --------------------- LOAD DATA ---------------------
+
 df = pd.read_csv("results/tables/grad_explanations.csv")
+eval_df = pd.read_csv("results/tables/explanation_evaluation.csv")
+
 
 # --------------------- 1. Class-wise explanation strength ---------------------
 
@@ -37,7 +41,10 @@ plt.show()
 
 # --------------------- 3. Fidelity vs Sparsity ---------------------
 
-eval_df["fidelity"] = (eval_df["fidelity_plus"] - eval_df["fidelity_minus"]).abs()
+# FIXED: compute fidelity once only
+eval_df["fidelity"] = (
+    eval_df["fidelity_plus"] - eval_df["fidelity_minus"]
+).abs()
 
 plt.figure()
 plt.scatter(eval_df["sparsity"], eval_df["fidelity"])
@@ -49,7 +56,8 @@ plt.tight_layout()
 plt.savefig("results/figures/fidelity_sparsity.png")
 plt.show()
 
-# --------------------- 4. Distribution ---------------------
+
+# --------------------- 4. Distribution of explanation strength ---------------------
 
 plt.figure()
 plt.hist(df["avg_edge_score"], bins=20)
