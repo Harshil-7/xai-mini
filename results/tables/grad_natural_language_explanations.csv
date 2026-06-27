@@ -1,0 +1,6 @@
+node,pred,avg_edge_score,explanation
+8357,3,3.07534766788681e-17,Node 8357.0 is classified as class 3.0 with importance score 0.0000.
+21998,3,0.0097204120829701,Node 21998.0 is classified as class 3.0 with importance score 0.0097.
+8787,3,1.966331746895576e-20,Node 8787.0 is classified as class 3.0 with importance score 0.0000.
+33297,3,8.286889135342917e-16,Node 33297.0 is classified as class 3.0 with importance score 0.0000.
+26738,3,2.353272611799184e-05,Node 26738.0 is classified as class 3.0 with importance score 0.0000.

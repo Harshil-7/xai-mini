@@ -1,10 +1,13 @@
 import torch
 import pandas as pd
+import matplotlib.pyplot as plt
 import config
 from step3_train_rgcn import FastRGCN
 import pickle
 
-
+# =========================================================
+# 1. LOAD MODEL (for safety / consistency - optional use)
+# =========================================================
 def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,71 +25,116 @@ def load_model():
     return model, data, device, mappings
 
 
-@torch.no_grad()
-def evaluate_one_node(model, data, node, mask_ratio=0.2):
-    """
-    mask_ratio: fraction of weakest edges to remove (simulate explanation)
-    """
+# =========================================================
+# 2. LOAD DATA
+# =========================================================
+df = pd.read_csv("results/tables/grad_explanations.csv")
+eval_df = pd.read_csv("results/tables/grad_evaluation.csv")
 
-    out = model(data.x, data.edge_index, data.edge_type)
-    pred_full = out[node].argmax().item()
-
-    # ---- simple "fake explanation" placeholder (replace with your mask) ----
-    edge_scores = torch.rand(data.edge_index.size(1), device=data.x.device)
-
-    k = int(mask_ratio * edge_scores.size(0))
-    topk_idx = torch.topk(edge_scores, k).indices
-
-    mask = torch.zeros_like(edge_scores)
-    mask[topk_idx] = 1.0
-
-    # remove edges NOT in explanation
-    keep_edges = mask.bool()
-
-    new_edge_index = data.edge_index[:, keep_edges]
-    new_edge_type = data.edge_type[keep_edges]
-
-    out2 = model(data.x, new_edge_index, new_edge_type)
-    pred_masked = out2[node].argmax().item()
-
-    # ---- metrics ----
-    fidelity = (pred_full == pred_masked)
-
-    sparsity = 1.0 - (keep_edges.sum().item() / edge_scores.size(0))
-
-    return {
-        "node": node,
-        "pred_full": pred_full,
-        "pred_masked": pred_masked,
-        "fidelity": float(fidelity),
-        "sparsity": float(sparsity),
-    }
+print("[INFO] Data loaded:")
+print(df.head())
 
 
-def main():
-    model, data, device, mappings = load_model()
+# =========================================================
+# 3. VISUALIZATION 1 - Class-wise explanation strength
+# =========================================================
+class_scores = df.groupby("pred")["avg_edge_score"].mean().sort_values()
 
-    nodes = data.test_idx[:config.NUM_NODES_TO_EXPLAIN].tolist()
+plt.figure()
+class_scores.plot(kind="bar")
+plt.title("Average Explanation Strength per Class (Grad-RGCN)")
+plt.xlabel("Class")
+plt.ylabel("Avg Edge Score")
+plt.xticks(rotation=30)
+plt.tight_layout()
 
-    results = []
-
-    print("[EVAL] Running explanation evaluation...")
-
-    for n in nodes:
-        res = evaluate_one_node(model, data, n)
-        results.append(res)
-        print("done node:", n)
-
-    df = pd.DataFrame(results)
-
-    # ---- summary ----
-    print("\n===== FINAL RESULTS =====")
-    print("Fidelity (avg):", df["fidelity"].mean())
-    print("Sparsity (avg):", df["sparsity"].mean())
-
-    df.to_csv(f"{config.RESULTS_TABLES_DIR}/evaluation.csv", index=False)
-    print("Saved to evaluation.csv")
+plt.savefig("results/figures/grad_class_strength.png")
+plt.show()
 
 
-if __name__ == "__main__":
-    main()
+# =========================================================
+# 4. VISUALIZATION 2 - Top influential nodes
+# =========================================================
+top_nodes = df.groupby("node")["avg_edge_score"].mean().sort_values(ascending=False).head(10)
+
+plt.figure()
+top_nodes.plot(kind="bar")
+plt.title("Top 10 Most Influential Nodes")
+plt.xlabel("Node ID")
+plt.ylabel("Avg Edge Score")
+plt.xticks(rotation=45)
+plt.tight_layout()
+
+plt.savefig("results/figures/grad_top_nodes.png")
+plt.show()
+
+
+# =========================================================
+# 5. VISUALIZATION 3 - Fidelity vs Sparsity
+# =========================================================
+plt.figure()
+plt.scatter(eval_df["sparsity"], eval_df["fidelity"])
+plt.title("Fidelity vs Sparsity Trade-off")
+plt.xlabel("Sparsity (higher = simpler explanation)")
+plt.ylabel("Fidelity")
+plt.tight_layout()
+
+plt.savefig("results/figures/grad_fidelity_sparsity.png")
+plt.show()
+
+
+# =========================================================
+# 6. VISUALIZATION 4 - Distribution of explanation scores
+# =========================================================
+plt.figure()
+plt.hist(df["avg_edge_score"], bins=20)
+plt.title("Distribution of Explanation Strength")
+plt.xlabel("Avg Edge Score")
+plt.ylabel("Count")
+plt.tight_layout()
+
+plt.savefig("results/figures/grad_importance_distribution.png")
+plt.show()
+
+
+# =========================================================
+# 7. NATURAL LANGUAGE EXPLANATIONS
+# =========================================================
+def explain(row):
+    node = row["node"]
+    pred = str(row["pred"])
+    score = row["avg_edge_score"]
+
+    pred_lower = pred.lower()
+
+    if "athlete" in pred_lower or pred == "3":
+        if score > 0.7:
+            return f"Node {node} is classified as ATHLETE because it has strong connections to sports-related entities and communities."
+        else:
+            return f"Node {node} is classified as ATHLETE due to moderate sports-related connections."
+
+    elif "scientist" in pred_lower or pred == "1":
+        if score > 0.7:
+            return f"Node {node} is classified as SCIENTIST due to strong academic and research connections."
+        else:
+            return f"Node {node} is classified as SCIENTIST based on partial academic associations."
+
+    else:
+        return f"Node {node} is classified as class {pred} with importance score {score:.4f}."
+
+
+df["explanation"] = df.apply(explain, axis=1)
+
+print("\nSample Explanations:")
+print(df["explanation"].head(10))
+
+df.to_csv("results/tables/grad_natural_language_explanations.csv", index=False)
+print("\nSaved: grad_natural_language_explanations.csv")
+
+
+# =========================================================
+# 8. SUMMARY PRINT
+# =========================================================
+print("\n===== FINAL RESULTS =====")
+print("Avg Fidelity:", eval_df["fidelity"].mean())
+print("Avg Sparsity:", eval_df["sparsity"].mean())
