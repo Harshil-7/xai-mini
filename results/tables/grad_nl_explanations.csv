@@ -1,61 +1,6 @@
 entity,predicted_label,explanation
-Augustin Maior,Scientist,"Augustin Maior is classified as Scientist.
-
-The model uses relationships in the knowledge graph.
-
-Key evidence:
-- Romanian --[http://dbpedia.org/property/alias]--> Augustin Maior
-- Augustin Maior --[http://dbpedia.org/ontology/nationality]--> Romanian
-- Augustin Maior --[http://dbpedia.org/property/candidate]--> Physics
-- Augustin Maior --[http://dbpedia.org/property/origin]--> Physics
-- Augustin Maior --[http://purl.org/dc/terms/subject]--> Physics
-
-This explanation is purely graph-structural."
-Clemens von Pirquet,Scientist,"Clemens von Pirquet is classified as Scientist.
-
-The model uses relationships in the knowledge graph.
-
-Key evidence:
-- Eukaryote --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet
-- Animal --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet
-- Person --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet
-- Clemens von Pirquet --[http://www.w3.org/1999/02/22-rdf-syntax-ns#type]--> Animal
-- Species --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet
-
-This explanation is purely graph-structural."
-Basil Balme,Scientist,"Basil Balme is classified as Scientist.
-
-The model uses relationships in the knowledge graph.
-
-Key evidence:
-- Basil Balme --[http://dbpedia.org/property/relatives]--> R.G. Coleman
-- R.G. Coleman --[http://dbpedia.org/property/preceded]--> Basil Balme
-- W.R. Browne Medal of the Geological Society of Australia --[http://dbpedia.org/property/profession]--> Basil Balme
-- Basil Balme --[http://dbpedia.org/property/prizes]--> W.R. Browne Medal of the Geological Society of Australia
-- Basil Balme --[http://dbpedia.org/property/wickets]--> Studies in stratigraphic palynology
-
-This explanation is purely graph-structural."
-Oluf Borbye Pedersen,Scientist,"Oluf Borbye Pedersen is classified as Scientist.
-
-The model uses relationships in the knowledge graph.
-
-Key evidence:
-- Oluf Borbye Pedersen --[http://dbpedia.org/property/candidate]--> Endocrinology; metabolic medicine; human genomics; microbiome science
-- Endocrinology; metabolic medicine; human genomics; microbiome science --[http://dbpedia.org/property/thesisTitle]--> Oluf Borbye Pedersen
-- Oluf Borbye Pedersen --[http://dbpedia.org/property/origin]--> Endocrinology
-- Endocrinology --[http://schema.org/sameAs]--> Oluf Borbye Pedersen
-- Oluf Borbye Pedersen --[http://dbpedia.org/ontology/weight]--> Order of the Dannebrog
-
-This explanation is purely graph-structural."
-Gustav Schneider,Scientist,"Gustav Schneider is classified as Scientist.
-
-The model uses relationships in the knowledge graph.
-
-Key evidence:
-- Botany --[http://dbpedia.org/property/thesisTitle]--> Gustav Schneider
-- Botany --[http://schema.org/sameAs]--> Gustav Schneider
-- Gustav Schneider --[http://dbpedia.org/property/origin]--> Botany
-- Gustav Schneider --[http://dbpedia.org/property/candidate]--> Botany
-- Germany --[http://dbpedia.org/property/alias]--> Gustav Schneider
-
-This explanation is purely graph-structural."
+Augustin Maior,Scientist,Augustin Maior is classified as Scientist.
+Clemens von Pirquet,Scientist,Clemens von Pirquet is classified as Scientist.
+Basil Balme,Scientist,Basil Balme is classified as Scientist.
+Oluf Borbye Pedersen,Scientist,Oluf Borbye Pedersen is classified as Scientist.
+Gustav Schneider,Scientist,Gustav Schneider is classified as Scientist.
