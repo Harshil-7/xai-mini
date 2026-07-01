@@ -32,6 +32,8 @@
 
 Augustin Maior is classified as Scientist.
 
+The model uses relationships in the knowledge graph.
+
 Key evidence:
 - Romanian --[http://dbpedia.org/property/alias]--> Augustin Maior
 - Augustin Maior --[http://dbpedia.org/ontology/nationality]--> Romanian
@@ -40,3 +42,7 @@ Key evidence:
 - Augustin Maior --[http://purl.org/dc/terms/subject]--> Physics
 
 This explanation is purely graph-structural.
+
+---
+
+Generated automatically by Step 7 pipeline.
