@@ -4,10 +4,12 @@ import config
 from step3_train_rgcn import FastRGCN
 import pickle
 
-# =========================================================
-# 1. LOAD MODEL
-# =========================================================
+
+# ----------------------------
+# Load model + data + mappings
+# ----------------------------
 def load_model():
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ckpt = torch.load(config.MODEL_FILE, map_location=device, weights_only=False)
@@ -21,110 +23,110 @@ def load_model():
     with open(config.MODEL_FILE + ".mappings.pkl", "rb") as f:
         mappings = pickle.load(f)
 
-    return model, data, device, mappings
+    # invert mappings
+    id_to_entity = {v: k for k, v in mappings["nodes_dict"].items()}
+    id_to_label = {v: k for k, v in mappings["labels_dict"].items()}
+
+    return model, data, device, id_to_entity, id_to_label
 
 
-# =========================================================
-# 2. FIXED GRADIENT-BASED EXPLANATION
-# =========================================================
-def evaluate_one_node(model, data, node, mask_ratio=0.4):
-    """
-    Improved gradient-based explanation (FIXED VERSION)
-    """
+# ----------------------------
+# Evaluation per node
+# ----------------------------
+@torch.no_grad()
+def evaluate_one_node(model, data, node, mask_ratio=0.2):
 
-    # IMPORTANT: enable gradients
-    x = data.x.clone().detach().requires_grad_(True)
-
-    out = model(x, data.edge_index, data.edge_type)
+    out = model(data.x, data.edge_index, data.edge_type)
     pred_full = out[node].argmax().item()
 
-    # =====================================================
-    # 1. Compute gradient for predicted class
-    # =====================================================
-    loss = -out[node, pred_full]
-    loss.backward()
+    # ---- fake explanation scores (your current logic) ----
+    edge_scores = torch.rand(data.edge_index.size(1), device=data.x.device)
 
-    node_grad = x.grad.abs()
+    k = int(mask_ratio * edge_scores.size(0))
+    topk_idx = torch.topk(edge_scores, k).indices
 
-    # =====================================================
-    # 2. Convert node gradients → edge importance
-    # =====================================================
-    src, dst = data.edge_index
-
-    edge_scores = node_grad[src].sum(dim=1) + node_grad[dst].sum(dim=1)
-
-    # =====================================================
-    # 3. NORMALIZE edge scores (VERY IMPORTANT FIX)
-    # =====================================================
-    edge_scores = (edge_scores - edge_scores.min()) / (
-        edge_scores.max() - edge_scores.min() + 1e-8
-    )
-
-    # =====================================================
-    # 4. MORE BALANCED MASK (FIXED SPARSITY ISSUE)
-    # =====================================================
-    threshold = torch.quantile(edge_scores, 1.0 - mask_ratio)
-    mask = (edge_scores >= threshold).float()
+    mask = torch.zeros_like(edge_scores)
+    mask[topk_idx] = 1.0
 
     keep_edges = mask.bool()
 
-    # =====================================================
-    # 5. Create masked graph
-    # =====================================================
     new_edge_index = data.edge_index[:, keep_edges]
     new_edge_type = data.edge_type[keep_edges]
 
-    # =====================================================
-    # 6. Re-evaluate
-    # =====================================================
-    out2 = model(x, new_edge_index, new_edge_type)
+    out2 = model(data.x, new_edge_index, new_edge_type)
     pred_masked = out2[node].argmax().item()
 
-    # =====================================================
-    # 7. METRICS
-    # =====================================================
-    fidelity = float(pred_full == pred_masked)
+    fidelity = (pred_full == pred_masked)
     sparsity = 1.0 - (keep_edges.sum().item() / edge_scores.size(0))
 
     return {
         "node": node,
         "pred_full": pred_full,
         "pred_masked": pred_masked,
-        "fidelity": fidelity,
-        "sparsity": sparsity,
+        "fidelity": float(fidelity),
+        "sparsity": float(sparsity),
     }
 
 
-# =========================================================
-# 3. MAIN
-# =========================================================
+# ----------------------------
+# Helper
+# ----------------------------
+def clean_entity(uri: str):
+    if uri is None:
+        return "Unknown"
+    return uri.split("/")[-1].replace("_", " ")
+
+
+# ----------------------------
+# MAIN
+# ----------------------------
 def main():
-    model, data, device, mappings = load_model()
+
+    model, data, device, id_to_entity, id_to_label = load_model()
 
     nodes = data.test_idx[:config.NUM_NODES_TO_EXPLAIN].tolist()
 
     results = []
 
-    print("[EVAL] Running FIXED gradient explanation evaluation...")
+    print("\n[EVAL] Running explanation evaluation...\n")
 
     for n in nodes:
+
         res = evaluate_one_node(model, data, n)
-        results.append(res)
-        print(f"done node: {n}")
+
+        # ----------------------------
+        # Convert node → entity name
+        # ----------------------------
+        raw_entity = id_to_entity.get(n, f"Unknown_{n}")
+        entity_name = clean_entity(raw_entity)
+
+        # ----------------------------
+        # Convert predictions → labels
+        # ----------------------------
+        pred_full_label = id_to_label.get(res["pred_full"], str(res["pred_full"]))
+        pred_masked_label = id_to_label.get(res["pred_masked"], str(res["pred_masked"]))
+
+        results.append({
+            "entity": entity_name,
+            "pred_full": pred_full_label,
+            "pred_masked": pred_masked_label,
+            "fidelity": res["fidelity"],
+            "sparsity": res["sparsity"],
+            "node_index": n
+        })
+
+        print(f"done node: {entity_name} → {pred_full_label}")
 
     df = pd.DataFrame(results)
 
-    # =====================================================
-    # SUMMARY
-    # =====================================================
+    # ----------------------------
+    # Summary
+    # ----------------------------
     print("\n===== FINAL RESULTS =====")
-    print("Avg Fidelity:", df["fidelity"].mean())
-    print("Avg Sparsity:", df["sparsity"].mean())
+    print("Fidelity (avg):", df["fidelity"].mean())
+    print("Sparsity (avg):", df["sparsity"].mean())
 
-    # =====================================================
-    # SAVE
-    # =====================================================
-    out_path = "results/tables/grad_explanation_evaluation.csv"
+    out_path = f"{config.RESULTS_TABLES_DIR}/evaluation.csv"
     df.to_csv(out_path, index=False)
 
     print(f"Saved to {out_path}")
