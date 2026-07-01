@@ -158,7 +158,14 @@ for i, n in enumerate(nodes):
 
     entity = clean(id_to_entity.get(n))
     pred_label = id_to_label.get(pred_full, str(pred_full))
-    true_label = id_to_label.get(int(data.y[n].item()), "Unknown") if hasattr(data, "y") else "Unknown"
+    true_label = "Unknown"
+
+    if hasattr(data, "y") and data.y is not None:
+
+           try:
+              true_label = id_to_label.get(int(data.y[n].item()), "Unknown")
+           except Exception:
+                true_label = "Unknown"
 
     edges = get_top_edges(n, data, edge_scores, top_k=5)
 
