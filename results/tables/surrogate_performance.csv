@@ -1,0 +1,3 @@
+model,surrogate_fidelity,true_accuracy
+RandomForest,1.0,0.9870401337792643
+LogisticRegression,0.947324414715719,0.93938127090301

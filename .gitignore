@@ -1,0 +1,89 @@
+# Python
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+# IDEs
+
+.vscode/
+.idea/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+*.log
+
+# Python build files
+
+build/
+dist/
+*.egg-info/
+
+# Environment variables
+
+.env
+
+
+# Dataset files
+
+data/raw/
+data/processed/
+datasets/
+
+# RDF files (uncomment if datasets are large)
+
+# *.nt
+
+# *.ttl
+
+# *.owl
+
+# *.rdf
+
+# Cache
+
+.cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Temporary files
+
+tmp/
+temp/
+*.tmp
+
+# Conda
+
+.conda/
+
+# Mac/Linux swap files
+
+*.swp
+*.swo
+
+# Coverage reports
+
+.coverage
+htmlcov/
+
+# Local notebooks
+
+scratch/
+notebooks/tmp/

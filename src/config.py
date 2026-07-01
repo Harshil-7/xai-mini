@@ -63,3 +63,16 @@ MAX_DEGREE_FEATURES = 50
 GNN_EXPLAINER_EPOCHS = 200
 TOP_K_EDGES = 5
 NUM_NODES_TO_EXPLAIN = 5
+
+
+# ---------------------------------------------------------------------------
+# Global explanation settings (step 6)
+# ---------------------------------------------------------------------------
+# Number of trees in the Random Forest surrogate
+RF_N_ESTIMATORS = 200
+
+# Max iterations for Logistic Regression surrogate convergence
+LR_MAX_ITER = 1000
+
+# How many top embedding dimensions to show in per-class bar charts
+SHAP_TOP_K_FEATURES = 16
