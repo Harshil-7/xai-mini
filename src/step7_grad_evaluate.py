@@ -126,7 +126,7 @@ def main():
     print("Fidelity (avg):", df["fidelity"].mean())
     print("Sparsity (avg):", df["sparsity"].mean())
 
-    out_path = f"{config.RESULTS_TABLES_DIR}/evaluation.csv"
+    out_path = f"{config.RESULTS_TABLES_DIR}/grad_evaluation.csv"
     df.to_csv(out_path, index=False)
 
     print(f"Saved to {out_path}")
