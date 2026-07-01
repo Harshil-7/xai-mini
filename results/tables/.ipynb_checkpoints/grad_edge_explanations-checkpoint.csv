@@ -1,0 +1,26 @@
+node,edge
+Augustin Maior,Romanian --[alias]--> Augustin Maior
+Augustin Maior,Augustin Maior --[nationality]--> Romanian
+Augustin Maior,Augustin Maior --[candidate]--> Physics
+Augustin Maior,Augustin Maior --[origin]--> Physics
+Augustin Maior,Augustin Maior --[subject]--> Physics
+Clemens von Pirquet,Eukaryote --[wikiPageWikiLink]--> Clemens von Pirquet
+Clemens von Pirquet,Animal --[wikiPageWikiLink]--> Clemens von Pirquet
+Clemens von Pirquet,Person --[wikiPageWikiLink]--> Clemens von Pirquet
+Clemens von Pirquet,Clemens von Pirquet --[22-rdf-syntax-ns#type]--> Animal
+Clemens von Pirquet,Species --[wikiPageWikiLink]--> Clemens von Pirquet
+Basil Balme,Basil Balme --[relatives]--> R.G. Coleman
+Basil Balme,R.G. Coleman --[preceded]--> Basil Balme
+Basil Balme,W.R. Browne Medal of the Geological Society of Australia --[profession]--> Basil Balme
+Basil Balme,Basil Balme --[prizes]--> W.R. Browne Medal of the Geological Society of Australia
+Basil Balme,Basil Balme --[wickets]--> Studies in stratigraphic palynology
+Oluf Borbye Pedersen,Oluf Borbye Pedersen --[candidate]--> Endocrinology; metabolic medicine; human genomics; microbiome science
+Oluf Borbye Pedersen,Endocrinology; metabolic medicine; human genomics; microbiome science --[thesisTitle]--> Oluf Borbye Pedersen
+Oluf Borbye Pedersen,Oluf Borbye Pedersen --[origin]--> Endocrinology
+Oluf Borbye Pedersen,Endocrinology --[sameAs]--> Oluf Borbye Pedersen
+Oluf Borbye Pedersen,Oluf Borbye Pedersen --[weight]--> Order of the Dannebrog
+Gustav Schneider,Botany --[thesisTitle]--> Gustav Schneider
+Gustav Schneider,Botany --[sameAs]--> Gustav Schneider
+Gustav Schneider,Gustav Schneider --[origin]--> Botany
+Gustav Schneider,Gustav Schneider --[candidate]--> Botany
+Gustav Schneider,Germany --[alias]--> Gustav Schneider

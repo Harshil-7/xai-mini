@@ -1,0 +1,81 @@
+entity,predicted_label,true_label,explanation_edges,explanation,node_index
+Augustin Maior,Scientist,Unknown,Romanian --[alias]--> Augustin Maior | Augustin Maior --[nationality]--> Romanian | Augustin Maior --[candidate]--> Physics | Augustin Maior --[origin]--> Physics | Augustin Maior --[subject]--> Physics,"Augustin Maior is predicted as Scientist.
+
+Graph reasoning:
+The model makes this decision using relationships in the knowledge graph.
+
+Key evidence:
+• Romanian --[alias]--> Augustin Maior
+• Augustin Maior --[nationality]--> Romanian
+• Augustin Maior --[candidate]--> Physics
+• Augustin Maior --[origin]--> Physics
+• Augustin Maior --[subject]--> Physics
+
+Explanation quality:
+- Fidelity: 1.000
+- Sparsity: 0.800
+",8357
+Clemens von Pirquet,Scientist,Unknown,Eukaryote --[wikiPageWikiLink]--> Clemens von Pirquet | Animal --[wikiPageWikiLink]--> Clemens von Pirquet | Person --[wikiPageWikiLink]--> Clemens von Pirquet | Clemens von Pirquet --[22-rdf-syntax-ns#type]--> Animal | Species --[wikiPageWikiLink]--> Clemens von Pirquet,"Clemens von Pirquet is predicted as Scientist.
+
+Graph reasoning:
+The model makes this decision using relationships in the knowledge graph.
+
+Key evidence:
+• Eukaryote --[wikiPageWikiLink]--> Clemens von Pirquet
+• Animal --[wikiPageWikiLink]--> Clemens von Pirquet
+• Person --[wikiPageWikiLink]--> Clemens von Pirquet
+• Clemens von Pirquet --[22-rdf-syntax-ns#type]--> Animal
+• Species --[wikiPageWikiLink]--> Clemens von Pirquet
+
+Explanation quality:
+- Fidelity: 1.000
+- Sparsity: 0.800
+",21998
+Basil Balme,Scientist,Unknown,Basil Balme --[relatives]--> R.G. Coleman | R.G. Coleman --[preceded]--> Basil Balme | W.R. Browne Medal of the Geological Society of Australia --[profession]--> Basil Balme | Basil Balme --[prizes]--> W.R. Browne Medal of the Geological Society of Australia | Basil Balme --[wickets]--> Studies in stratigraphic palynology,"Basil Balme is predicted as Scientist.
+
+Graph reasoning:
+The model makes this decision using relationships in the knowledge graph.
+
+Key evidence:
+• Basil Balme --[relatives]--> R.G. Coleman
+• R.G. Coleman --[preceded]--> Basil Balme
+• W.R. Browne Medal of the Geological Society of Australia --[profession]--> Basil Balme
+• Basil Balme --[prizes]--> W.R. Browne Medal of the Geological Society of Australia
+• Basil Balme --[wickets]--> Studies in stratigraphic palynology
+
+Explanation quality:
+- Fidelity: 1.000
+- Sparsity: 0.800
+",8787
+Oluf Borbye Pedersen,Scientist,Unknown,Oluf Borbye Pedersen --[candidate]--> Endocrinology; metabolic medicine; human genomics; microbiome science | Endocrinology; metabolic medicine; human genomics; microbiome science --[thesisTitle]--> Oluf Borbye Pedersen | Oluf Borbye Pedersen --[origin]--> Endocrinology | Endocrinology --[sameAs]--> Oluf Borbye Pedersen | Oluf Borbye Pedersen --[weight]--> Order of the Dannebrog,"Oluf Borbye Pedersen is predicted as Scientist.
+
+Graph reasoning:
+The model makes this decision using relationships in the knowledge graph.
+
+Key evidence:
+• Oluf Borbye Pedersen --[candidate]--> Endocrinology; metabolic medicine; human genomics; microbiome science
+• Endocrinology; metabolic medicine; human genomics; microbiome science --[thesisTitle]--> Oluf Borbye Pedersen
+• Oluf Borbye Pedersen --[origin]--> Endocrinology
+• Endocrinology --[sameAs]--> Oluf Borbye Pedersen
+• Oluf Borbye Pedersen --[weight]--> Order of the Dannebrog
+
+Explanation quality:
+- Fidelity: 1.000
+- Sparsity: 0.800
+",33297
+Gustav Schneider,Scientist,Unknown,Botany --[thesisTitle]--> Gustav Schneider | Botany --[sameAs]--> Gustav Schneider | Gustav Schneider --[origin]--> Botany | Gustav Schneider --[candidate]--> Botany | Germany --[alias]--> Gustav Schneider,"Gustav Schneider is predicted as Scientist.
+
+Graph reasoning:
+The model makes this decision using relationships in the knowledge graph.
+
+Key evidence:
+• Botany --[thesisTitle]--> Gustav Schneider
+• Botany --[sameAs]--> Gustav Schneider
+• Gustav Schneider --[origin]--> Botany
+• Gustav Schneider --[candidate]--> Botany
+• Germany --[alias]--> Gustav Schneider
+
+Explanation quality:
+- Fidelity: 1.000
+- Sparsity: 0.800
+",26738

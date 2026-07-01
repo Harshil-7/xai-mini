@@ -1,6 +1,6 @@
-node,pred,avg_edge_score
-8357,3,3.07534766788681e-17
-21998,3,0.009720412082970142
-8787,3,1.9663317468955762e-20
-33297,3,8.286889135342916e-16
-26738,3,2.3532726117991842e-05
+entity,predicted_label,top_edges,node_index
+Augustin Maior,Scientist,Romanian --[http://dbpedia.org/property/alias]--> Augustin Maior | Augustin Maior --[http://dbpedia.org/ontology/nationality]--> Romanian | Augustin Maior --[http://dbpedia.org/property/candidate]--> Physics | Augustin Maior --[http://dbpedia.org/property/origin]--> Physics | Augustin Maior --[http://purl.org/dc/terms/subject]--> Physics,8357
+Clemens von Pirquet,Scientist,Eukaryote --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet | Animal --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet | Person --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet | Clemens von Pirquet --[http://www.w3.org/1999/02/22-rdf-syntax-ns#type]--> Animal | Species --[http://dbpedia.org/ontology/wikiPageWikiLink]--> Clemens von Pirquet,21998
+Basil Balme,Scientist,Basil Balme --[http://dbpedia.org/property/relatives]--> R.G. Coleman | R.G. Coleman --[http://dbpedia.org/property/preceded]--> Basil Balme | W.R. Browne Medal of the Geological Society of Australia --[http://dbpedia.org/property/profession]--> Basil Balme | Basil Balme --[http://dbpedia.org/property/prizes]--> W.R. Browne Medal of the Geological Society of Australia | Basil Balme --[http://dbpedia.org/property/wickets]--> Studies in stratigraphic palynology,8787
+Oluf Borbye Pedersen,Scientist,Oluf Borbye Pedersen --[http://dbpedia.org/property/candidate]--> Endocrinology; metabolic medicine; human genomics; microbiome science | Endocrinology; metabolic medicine; human genomics; microbiome science --[http://dbpedia.org/property/thesisTitle]--> Oluf Borbye Pedersen | Oluf Borbye Pedersen --[http://dbpedia.org/property/origin]--> Endocrinology | Endocrinology --[http://schema.org/sameAs]--> Oluf Borbye Pedersen | Oluf Borbye Pedersen --[http://dbpedia.org/ontology/weight]--> Order of the Dannebrog,33297
+Gustav Schneider,Scientist,Botany --[http://dbpedia.org/property/thesisTitle]--> Gustav Schneider | Botany --[http://schema.org/sameAs]--> Gustav Schneider | Gustav Schneider --[http://dbpedia.org/property/origin]--> Botany | Gustav Schneider --[http://dbpedia.org/property/candidate]--> Botany | Germany --[http://dbpedia.org/property/alias]--> Gustav Schneider,26738
