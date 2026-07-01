@@ -1,6 +1,6 @@
 import pickle
 
-with open("models/rgcn_model.pt.mappings.pkl", "rb") as f:
+with open("rgcn_model.pt.mappings.pkl", "rb") as f:
     mappings = pickle.load(f)
 
 print(type(mappings))
