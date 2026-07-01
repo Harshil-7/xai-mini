@@ -15,7 +15,7 @@ def load_step6():
 
 
 # =========================================================
-# CLEAN EDGE PARSING
+# EDGE PARSING
 # =========================================================
 def parse_edges(edge_str):
     if not isinstance(edge_str, str):
@@ -31,7 +31,7 @@ def extract_relation(edge):
 
 
 # =========================================================
-# NATURAL LANGUAGE EXPLANATION (HUMAN + SHAP STYLE)
+# NATURAL LANGUAGE (HUMAN FRIENDLY)
 # =========================================================
 def make_nl(row):
 
@@ -39,19 +39,19 @@ def make_nl(row):
     label = row["predicted_label"]
     edges = parse_edges(row.get("top_edges", ""))
 
-    edge_text = "\n".join([f"- {e}" for e in edges]) if edges else "- No strong graph evidence found"
+    edge_text = "\n".join([f"- {e}" for e in edges]) if edges else "- No strong graph evidence"
 
     return (
         f"{entity} is classified as {label}.\n\n"
-        f"The model predicts this based on graph structure in DBpedia.\n\n"
+        f"The model uses relationships in the knowledge graph.\n\n"
         f"Key evidence:\n"
         f"{edge_text}\n\n"
-        f"This explanation reflects relational structure, not textual features."
+        f"This explanation is purely graph-structural."
     )
 
 
 # =========================================================
-# MAIN
+# MAIN PIPELINE
 # =========================================================
 def main():
 
@@ -65,7 +65,6 @@ def main():
     eval_rows = []
     nl_rows = []
     edge_rows = []
-
     relation_counter = Counter()
 
     # =====================================================
@@ -78,7 +77,7 @@ def main():
         edges = parse_edges(row.get("top_edges", ""))
 
         # -------------------------
-        # TABLE 1: evaluation summary
+        # TABLE 1: evaluation
         # -------------------------
         eval_rows.append({
             "entity": entity,
@@ -96,7 +95,7 @@ def main():
         })
 
         # -------------------------
-        # TABLE 3: edge-level table
+        # TABLE 3: edge-level
         # -------------------------
         for e in edges:
             edge_rows.append({
@@ -117,25 +116,18 @@ def main():
     nl_df = pd.DataFrame(nl_rows)
     edge_df = pd.DataFrame(edge_rows)
 
-    # =====================================================
-    # TABLE 4: SUMMARY STATS
-    # =====================================================
     summary_df = pd.DataFrame([{
         "avg_explanation_size": eval_df["num_edges"].mean(),
-        "total_entities": len(eval_df),
-        "avg_edges": eval_df["num_edges"].mean()
+        "total_entities": len(eval_df)
     }])
 
-    # =====================================================
-    # TABLE 5: RELATION IMPORTANCE
-    # =====================================================
     relation_df = pd.DataFrame(
         relation_counter.items(),
         columns=["relation", "count"]
     ).sort_values("count", ascending=False)
 
     # =====================================================
-    # SAVE TABLES
+    # SAVE TABLES (5 FILES)
     # =====================================================
     eval_df.to_csv(os.path.join(config.RESULTS_TABLES_DIR, "grad_eval_summary.csv"), index=False)
     nl_df.to_csv(os.path.join(config.RESULTS_TABLES_DIR, "grad_nl_explanations.csv"), index=False)
@@ -155,7 +147,7 @@ def main():
     plt.close()
 
     # =====================================================
-    # FIGURE 2: Explanation size distribution
+    # FIGURE 2: Explanation size
     # =====================================================
     plt.figure()
     eval_df["num_edges"].hist(bins=20)
@@ -164,7 +156,7 @@ def main():
     plt.close()
 
     # =====================================================
-    # FIGURE 3: Relation importance
+    # FIGURE 3: Top relations
     # =====================================================
     plt.figure()
     relation_df.head(10).set_index("relation")["count"].plot(kind="bar")
@@ -175,20 +167,20 @@ def main():
     plt.close()
 
     # =====================================================
-    # FIGURE 4: Fidelity proxy (structure-based)
+    # FIGURE 4: Structural complexity
     # =====================================================
     plt.figure()
     eval_df["num_edges"].plot(kind="hist", bins=20)
-    plt.title("Structural Explanation Complexity")
+    plt.title("Structural Complexity")
     plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_structural_complexity.png"))
     plt.close()
 
     # =====================================================
-    # FIGURE 5: Class-wise explanation strength
+    # FIGURE 5: Class-wise explanation size
     # =====================================================
     plt.figure()
     eval_df.groupby("predicted_label")["num_edges"].mean().plot(kind="bar")
-    plt.title("Average Explanation Size per Class")
+    plt.title("Avg Explanation Size per Class")
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_class_explanation_strength.png"))
@@ -199,19 +191,66 @@ def main():
     # =====================================================
     plt.figure()
     eval_df["entity"].value_counts().head(15).plot(kind="bar")
-    plt.title("Most Frequently Explained Entities")
+    plt.title("Most Explained Entities")
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_entity_coverage.png"))
     plt.close()
 
     # =====================================================
-    # DONE
+    # MARKDOWN REPORT (.md)
     # =====================================================
+    md_path = os.path.join(config.RESULTS_TABLES_DIR, "report.md")
+
+    md_content = f"""
+# R-GCN Explanation Report
+
+## Overview
+- Nodes: {len(eval_df)}
+- Avg explanation size: {eval_df['num_edges'].mean():.2f}
+
+---
+
+## Figures
+
+### Prediction Distribution
+![](../figures/grad_prediction_distribution.png)
+
+### Explanation Size
+![](../figures/grad_explanation_size.png)
+
+### Relation Importance
+![](../figures/grad_relation_importance.png)
+
+### Structural Complexity
+![](../figures/grad_structural_complexity.png)
+
+### Class-wise Explanation Strength
+![](../figures/grad_class_explanation_strength.png)
+
+### Entity Coverage
+![](../figures/grad_entity_coverage.png)
+
+---
+
+## Sample Explanation
+
+{nl_df.iloc[0]['explanation'] if len(nl_df) > 0 else 'No explanation available'}
+
+---
+
+Generated automatically by Step 7 pipeline.
+"""
+
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(md_content)
+
     print("\n========== STEP 7 COMPLETE ==========")
-    print("Tables saved: 5")
-    print("Figures saved: 6")
+    print("Tables: 5 saved")
+    print("Figures: 6 saved")
+    print("Markdown report generated ✔")
 
 
+# =========================================================
 if __name__ == "__main__":
     main()
