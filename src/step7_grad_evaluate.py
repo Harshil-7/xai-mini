@@ -1,12 +1,15 @@
 import torch
 import pandas as pd
+import pickle
+import matplotlib.pyplot as plt
+import os
+
 import config
 from step3_train_rgcn import FastRGCN
-import pickle
 
 
 # ----------------------------
-# Load model + data + mappings
+# LOAD MODEL + DATA + MAPPINGS
 # ----------------------------
 def load_model():
 
@@ -23,7 +26,6 @@ def load_model():
     with open(config.MODEL_FILE + ".mappings.pkl", "rb") as f:
         mappings = pickle.load(f)
 
-    # invert mappings
     id_to_entity = {v: k for k, v in mappings["nodes_dict"].items()}
     id_to_label = {v: k for k, v in mappings["labels_dict"].items()}
 
@@ -31,105 +33,162 @@ def load_model():
 
 
 # ----------------------------
-# Evaluation per node
+# REALISTIC EVALUATION
 # ----------------------------
 @torch.no_grad()
-def evaluate_one_node(model, data, node, mask_ratio=0.2):
+def evaluate(model, data, node):
 
     out = model(data.x, data.edge_index, data.edge_type)
+
     pred_full = out[node].argmax().item()
 
-    # ---- fake explanation scores (your current logic) ----
-    edge_scores = torch.rand(data.edge_index.size(1), device=data.x.device)
+    # explanation proxy (gradient-based, not random)
+    x = data.x.clone().detach().requires_grad_(True)
 
-    k = int(mask_ratio * edge_scores.size(0))
-    topk_idx = torch.topk(edge_scores, k).indices
+    out2 = model(x, data.edge_index, data.edge_type)
+    loss = -out2[node, pred_full]
+    loss.backward()
+
+    node_grad = x.grad.abs().sum(dim=1)
+
+    edge_scores = node_grad[data.edge_index[0]] + node_grad[data.edge_index[1]]
+
+    k = int(0.2 * edge_scores.size(0))
+
+    topk = torch.topk(edge_scores, k).indices
 
     mask = torch.zeros_like(edge_scores)
-    mask[topk_idx] = 1.0
+    mask[topk] = 1.0
 
-    keep_edges = mask.bool()
+    keep = mask.bool()
 
-    new_edge_index = data.edge_index[:, keep_edges]
-    new_edge_type = data.edge_type[keep_edges]
+    out_masked = model(
+        data.x,
+        data.edge_index[:, keep],
+        data.edge_type[keep]
+    )
 
-    out2 = model(data.x, new_edge_index, new_edge_type)
-    pred_masked = out2[node].argmax().item()
+    pred_masked = out_masked[node].argmax().item()
 
-    fidelity = (pred_full == pred_masked)
-    sparsity = 1.0 - (keep_edges.sum().item() / edge_scores.size(0))
+    fidelity = float(pred_full == pred_masked)
+    sparsity = 1.0 - (keep.sum().item() / edge_scores.size(0))
 
-    return {
-        "node": node,
-        "pred_full": pred_full,
-        "pred_masked": pred_masked,
-        "fidelity": float(fidelity),
-        "sparsity": float(sparsity),
-    }
+    return pred_full, pred_masked, fidelity, sparsity
 
 
 # ----------------------------
-# Helper
+# CLEAN ENTITY
 # ----------------------------
-def clean_entity(uri: str):
-    if uri is None:
-        return "Unknown"
+def clean(uri):
     return uri.split("/")[-1].replace("_", " ")
 
 
 # ----------------------------
-# MAIN
+# NATURAL LANGUAGE EXPLANATION
+# ----------------------------
+def explain_text(entity, label, fidelity, sparsity):
+
+    strength = (
+        "strong structural evidence"
+        if sparsity > 0.7 else
+        "moderate structural evidence"
+        if sparsity > 0.4 else
+        "weak structural evidence"
+    )
+
+    stability = (
+        "stable prediction under explanation masking"
+        if fidelity == 1.0 else
+        "sensitive prediction under masking"
+    )
+
+    return f"{entity} is classified as {label}. It shows {strength} and {stability}."
+
+
+# ----------------------------
+# MAIN PIPELINE
 # ----------------------------
 def main():
 
+    print("\n========== STEP 7 FULL PIPELINE STARTED ==========\n")
+
     model, data, device, id_to_entity, id_to_label = load_model()
+
+    os.makedirs("results/tables", exist_ok=True)
+    os.makedirs("results/figures", exist_ok=True)
 
     nodes = data.test_idx[:config.NUM_NODES_TO_EXPLAIN].tolist()
 
     results = []
-
-    print("\n[EVAL] Running explanation evaluation...\n")
+    explanations = []
 
     for n in nodes:
 
-        res = evaluate_one_node(model, data, n)
+        pred_full, pred_masked, fidelity, sparsity = evaluate(model, data, n)
 
-        # ----------------------------
-        # Convert node → entity name
-        # ----------------------------
-        raw_entity = id_to_entity.get(n, f"Unknown_{n}")
-        entity_name = clean_entity(raw_entity)
+        entity = clean(id_to_entity.get(n, f"Unknown_{n}"))
 
-        # ----------------------------
-        # Convert predictions → labels
-        # ----------------------------
-        pred_full_label = id_to_label.get(res["pred_full"], str(res["pred_full"]))
-        pred_masked_label = id_to_label.get(res["pred_masked"], str(res["pred_masked"]))
+        label = id_to_label.get(pred_full, str(pred_full))
+
+        nl = explain_text(entity, label, fidelity, sparsity)
 
         results.append({
-            "entity": entity_name,
-            "pred_full": pred_full_label,
-            "pred_masked": pred_masked_label,
-            "fidelity": res["fidelity"],
-            "sparsity": res["sparsity"],
+            "entity": entity,
+            "pred_full": label,
+            "pred_masked": id_to_label.get(pred_masked, str(pred_masked)),
+            "fidelity": fidelity,
+            "sparsity": sparsity,
             "node_index": n
         })
 
-        print(f"done node: {entity_name} → {pred_full_label}")
+        explanations.append(nl)
+
+        print("[OK]", nl)
 
     df = pd.DataFrame(results)
 
     # ----------------------------
-    # Summary
+    # SAVE CSV
     # ----------------------------
-    print("\n===== FINAL RESULTS =====")
-    print("Fidelity (avg):", df["fidelity"].mean())
-    print("Sparsity (avg):", df["sparsity"].mean())
+    csv_path = "results/tables/grad_evaluation.csv"
+    df.to_csv(csv_path, index=False)
 
-    out_path = f"{config.RESULTS_TABLES_DIR}/grad_evaluation.csv"
-    df.to_csv(out_path, index=False)
+    print("\nSaved CSV:", csv_path)
 
-    print(f"Saved to {out_path}")
+    # ----------------------------
+    # FIGURE 1: Fidelity vs Sparsity
+    # ----------------------------
+    plt.figure()
+    plt.scatter(df["sparsity"], df["fidelity"])
+    plt.title("Fidelity vs Sparsity")
+    plt.xlabel("Sparsity")
+    plt.ylabel("Fidelity")
+    plt.savefig("results/figures/grad_fidelity_vs_sparsity.png")
+    plt.close()
+
+    # ----------------------------
+    # FIGURE 2: Class distribution
+    # ----------------------------
+    plt.figure()
+    df["pred_full"].value_counts().plot(kind="bar")
+    plt.title("Prediction Distribution")
+    plt.xlabel("Class")
+    plt.ylabel("Count")
+    plt.tight_layout()
+    plt.savefig("results/figures/grad_class_distribution.png")
+    plt.close()
+
+    # ----------------------------
+    # SAVE NL EXPLANATIONS
+    # ----------------------------
+    nl_df = df.copy()
+    nl_df["explanation"] = explanations
+
+    nl_df.to_csv("results/tables/grad_natural_language_explanations.csv", index=False)
+
+    print("\n========== DONE ==========")
+    print("Figures saved in results/figures/")
+    print("NL explanations saved in results/tables/")
 
 
 if __name__ == "__main__":
