@@ -27,10 +27,66 @@ def extract_relation(edge):
     if "--[" in edge:
         try:
             return edge.split("--[")[1].split("]-->")[0]
-        except:
+        except Exception:
             return None
     return None
 
+
+# ----------------------------
+# NATURAL LANGUAGE EXPLANATIONS
+# ----------------------------
+def build_nl_explanation(row):
+
+    edges = parse_edges(row["explanation_edges"])
+
+    evidence = []
+
+    for e in edges:
+        rel = extract_relation(e)
+
+        # extract right-hand side value (IMPORTANT)
+        if "-->" in e:
+            value = e.split("-->")[-1].strip()
+        else:
+            value = None
+
+        if not value:
+            continue
+
+        value_lower = value.lower()
+
+        # clean useless wiki noise
+        if "wikipage" in rel or "wiki" in rel.lower():
+            continue
+
+        # keep meaningful evidence only
+        if rel in ["occupation", "profession"]:
+            evidence.append(f"worked as {value}")
+        elif rel in ["almaMater", "educatedAt"]:
+            evidence.append(f"studied at {value}")
+        elif rel in ["fieldOfWork", "subject", "origin"]:
+            evidence.append(f"associated with {value}")
+        elif rel in ["prizes", "award", "honor"]:
+            evidence.append(f"received recognition such as {value}")
+        elif rel in ["nationality"]:
+            evidence.append(f"is from {value}")
+        else:
+            evidence.append(f"linked to {value}")
+
+    if not evidence:
+        evidence.append("several related background facts")
+
+    # make it natural sentence
+    if len(evidence) == 1:
+        evidence_text = evidence[0]
+    else:
+        evidence_text = ", ".join(evidence[:-1]) + " and " + evidence[-1]
+
+    return (
+        f"{row['entity']} is classified as {row['predicted_label']} because "
+        f"{evidence_text}. "
+        f"These signals are typical for this category in the knowledge graph."
+    )
 
 # ----------------------------
 # MAIN
@@ -52,15 +108,13 @@ def main():
     )
 
     df["num_relations_used"] = df["explanation_edges"].apply(
-        lambda x: len(set(
-            [extract_relation(e) for e in parse_edges(x)]
-        ))
+        lambda x: len(set(extract_relation(e) for e in parse_edges(x)))
     )
 
     avg_size = df["explanation_size"].mean()
 
     # =========================================================
-    # EVALUATION (FIXED - REAL SEPARATION)
+    # EVALUATION
     # =========================================================
     eval_df = df.copy()
 
@@ -76,46 +130,13 @@ def main():
     )
 
     # =========================================================
-    # NATURAL LANGUAGE EXPLANATIONS (HUMAN-FRIENDLY FIXED)
+    # NATURAL LANGUAGE EXPLANATIONS
     # =========================================================
-    def build_nl_explanation(row):
-
-        edges = parse_edges(row["explanation_edges"])
-        relations = [extract_relation(e) for e in edges]
-        relations = [r for r in relations if r]
-
-        academic = {"educatedAt", "almaMater", "fieldOfStudy", "fieldOfWork"}
-        professional = {"occupation", "employer", "worksAt"}
-        research = {"author", "contributor", "discoverer"}
-
-        has_academic = any(r in academic for r in relations)
-        has_professional = any(r in professional for r in relations)
-        has_research = any(r in research for r in relations)
-
-        reasons = []
-
-        if has_academic:
-            reasons.append("a strong education background")
-        if has_professional:
-            reasons.append("professional work experience")
-        if has_research:
-            reasons.append("involvement in scientific or research work")
-
-        if not reasons:
-            reasons.append("several related connections in available information")
-
-        reason_text = ", ".join(reasons)
-
-        return (
-            f"{row['entity']} is classified as {row['predicted_label']} because it shows "
-            f"{reason_text}. This combination of information is typically seen in people "
-            f"belonging to this category."
-        )
-
     df["nl_explanation"] = df.apply(build_nl_explanation, axis=1)
+
     df.to_csv(
-    os.path.join(config.RESULTS_TABLES_DIR, "grad_nl_explanations.csv"),
-    index=False
+        os.path.join(config.RESULTS_TABLES_DIR, "grad_nl_explanations.csv"),
+        index=False
     )
 
     # =========================================================
@@ -143,43 +164,79 @@ def main():
     # =========================================================
     # FIGURES
     # =========================================================
-
     plt.figure()
     df["predicted_label"].value_counts().plot(kind="bar")
     plt.title("Prediction Distribution")
     plt.tight_layout()
-    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_prediction_distribution.png"))
+    plt.savefig(
+        os.path.join(
+            config.RESULTS_FIGURES_DIR,
+            "grad_prediction_distribution.png"
+        )
+    )
     plt.close()
 
     plt.figure()
     rel_df.head(10).plot(x="relation", y="importance", kind="bar")
     plt.title("Top Relations")
     plt.tight_layout()
-    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_top_relations.png"))
+    plt.savefig(
+        os.path.join(
+            config.RESULTS_FIGURES_DIR,
+            "grad_top_relations.png"
+        )
+    )
     plt.close()
 
     plt.figure()
     df["explanation_size"].plot(kind="hist", bins=10)
     plt.title("Explanation Size Distribution")
     plt.tight_layout()
-    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_explanation_size.png"))
+    plt.savefig(
+        os.path.join(
+            config.RESULTS_FIGURES_DIR,
+            "grad_explanation_size.png"
+        )
+    )
     plt.close()
 
     # =========================================================
-    # FIXED SCATTER (REAL VARIATION)
+    # FIDELITY VS SPARSITY
     # =========================================================
-    plt.figure()
+    plt.figure(figsize=(7, 5))
 
-    x = eval_df["sparsity"] + np.random.normal(0, 0.01, len(eval_df))
-    y = eval_df["fidelity"] + np.random.normal(0, 0.01, len(eval_df))
+    plt.scatter(
+        eval_df["sparsity"],
+        eval_df["fidelity"],
+        s=70,
+        alpha=0.8
+    )
 
-    plt.scatter(x, y, alpha=0.6, s=25)
-    plt.xlabel("Sparsity (compactness)")
-    plt.ylabel("Fidelity (relation diversity)")
-    plt.title("Fidelity vs Sparsity (Decoupled Metrics)")
+    z = np.polyfit(eval_df["sparsity"], eval_df["fidelity"], 1)
+    p = np.poly1d(z)
+
+    x_sorted = np.sort(eval_df["sparsity"])
+
+    plt.plot(
+        x_sorted,
+        p(x_sorted),
+        linewidth=2
+    )
+
+    plt.grid(alpha=0.3)
+    plt.xlabel("Sparsity")
+    plt.ylabel("Fidelity")
+    plt.title("Relationship Between Sparsity and Fidelity")
+
     plt.tight_layout()
 
-    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_fidelity_vs_sparsity.png"))
+    plt.savefig(
+        os.path.join(
+            config.RESULTS_FIGURES_DIR,
+            "grad_fidelity_vs_sparsity.png"
+        )
+    )
+
     plt.close()
 
     # =========================================================
@@ -189,7 +246,12 @@ def main():
     eval_df.groupby("predicted_label")["fidelity"].mean().plot(kind="bar")
     plt.title("Class-wise Explanation Diversity")
     plt.tight_layout()
-    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_class_explanation_strength.png"))
+    plt.savefig(
+        os.path.join(
+            config.RESULTS_FIGURES_DIR,
+            "grad_class_explanation_strength.png"
+        )
+    )
     plt.close()
 
     # =========================================================
@@ -211,10 +273,12 @@ def main():
     print("Step 7 completed successfully (FINAL RESEARCH VERSION)")
 
     # =========================================================
-    # REPORT (ENHANCED + EXPLANATORY)
+    # REPORT
     # =========================================================
-
-    report_path = os.path.join(config.RESULTS_TABLES_DIR, "grad_report.md")
+    report_path = os.path.join(
+        config.RESULTS_TABLES_DIR,
+        "grad_report.md"
+    )
 
     sample = df.iloc[0]
     sample_edges = parse_edges(sample["explanation_edges"])
@@ -263,7 +327,9 @@ def main():
         for e in sample_edges[:7]:
             f.write(f"- {e}\n")
 
-        f.write("\nThis demonstrates how relational structure guides prediction decisions.\n\n")
+        f.write(
+            "\nThis demonstrates how relational structure guides prediction decisions.\n\n"
+        )
 
         f.write("## 6. Key Insight\n\n")
         f.write(
