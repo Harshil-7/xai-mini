@@ -1,6 +1,0 @@
-entity,predicted_label,true_label,fidelity,sparsity,node_index,num_edges
-Augustin Maior,Scientist,Unknown,1.0,0.8000016824253844,8357,5
-Clemens von Pirquet,Scientist,Unknown,1.0,0.8000016824253844,21998,5
-Basil Balme,Scientist,Unknown,1.0,0.8000016824253844,8787,5
-Oluf Borbye Pedersen,Scientist,Unknown,1.0,0.8000016824253844,33297,5
-Gustav Schneider,Scientist,Unknown,1.0,0.8000016824253844,26738,5
