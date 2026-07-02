@@ -6,16 +6,13 @@
 - Avg explanation size: 2.80
 - Relations discovered: 8
 
-## 2. Explanation Behavior Analysis
+## 2. What This Model Learns
 
-The model generates explanations based on subgraphs of DBpedia relations. We observe variation in both compactness and relational diversity across nodes.
+The model learns patterns from how real-world entities are connected in Wikipedia. It uses graph structure instead of raw text.
 
-## 3. Metric Interpretation
+## 3. How Predictions Are Made
 
-- Sparsity: measures how compact the explanation is
-- Fidelity: measures diversity of semantic relations used
-
-High fidelity with moderate sparsity indicates informative yet compact explanations.
+Predictions are based on relational patterns such as occupation, education, and domain-specific links.
 
 ## 4. Visual Summary
 
@@ -31,14 +28,14 @@ Entity: Augustin Maior
 
 Predicted Label: Scientist
 
-Key relational evidence:
+Key connections:
 
 - Augustin Maior --[nationality]--> Romanian
 - Augustin Maior --[origin]--> Physics
 - Augustin Maior --[subject]--> Physics
 
-This demonstrates how relational structure guides prediction decisions.
+The model aggregates multiple signals instead of relying on a single feature.
 
 ## 6. Key Insight
 
-The model does not rely on a single type of relation but instead distributes importance across multiple semantic edges, showing robustness in explanation structure.
+Graph structure provides distributed evidence across multiple relation types, improving robustness of predictions.

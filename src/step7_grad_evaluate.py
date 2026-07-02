@@ -39,53 +39,89 @@ def build_nl_explanation(row):
 
     edges = parse_edges(row["explanation_edges"])
 
-    evidence = []
+    if not edges:
+        return (
+            f"The model predicts that {row['entity']} belongs to the "
+            f"{row['predicted_label']} category because the available "
+            f"information matches characteristics commonly associated with this group."
+        )
 
-    for e in edges:
-        rel = extract_relation(e)
+    facts = []
+    seen = set()
 
-        # extract right-hand side value (IMPORTANT)
-        if "-->" in e:
-            value = e.split("-->")[-1].strip()
-        else:
-            value = None
+    for edge in edges:
 
-        if not value:
+        try:
+            source = edge.split("--[")[0].strip()
+            relation = edge.split("--[")[1].split("]-->")[0].strip()
+            target = edge.split("]-->")[1].strip()
+        except Exception:
             continue
 
-        value_lower = value.lower()
-
-        # clean useless wiki noise
-        if "wikipage" in rel or "wiki" in rel.lower():
+        # Ignore unhelpful relations
+        if relation in {"wikiPageWikiLink", "sameAs"}:
             continue
 
-        # keep meaningful evidence only
-        if rel in ["occupation", "profession"]:
-            evidence.append(f"worked as {value}")
-        elif rel in ["almaMater", "educatedAt"]:
-            evidence.append(f"studied at {value}")
-        elif rel in ["fieldOfWork", "subject", "origin"]:
-            evidence.append(f"associated with {value}")
-        elif rel in ["prizes", "award", "honor"]:
-            evidence.append(f"received recognition such as {value}")
-        elif rel in ["nationality"]:
-            evidence.append(f"is from {value}")
+        # Ignore self-links
+        if source == target:
+            continue
+
+        # Convert relations into natural language
+        if relation == "nationality":
+            fact = f"is from {target}"
+
+        elif relation in {"origin", "fieldOfStudy", "subject"}:
+            fact = f"has a background in {target}"
+
+        elif relation in {"occupation", "profession"}:
+            fact = f"works as a {target}"
+
+        elif relation in {"employer", "worksAt"}:
+            fact = f"works at {target}"
+
+        elif relation in {"prizes", "award"}:
+            fact = f"has received the {target}"
+
+        elif relation in {"educatedAt", "almaMater"}:
+            fact = f"studied at {target}"
+
+        elif relation == "relatives":
+            fact = f"is related to {target}"
+
+        elif relation in {"fieldOfWork"}:
+            fact = f"works in the field of {target}"
+
         else:
-            evidence.append(f"linked to {value}")
+            continue
 
-    if not evidence:
-        evidence.append("several related background facts")
+        if fact not in seen:
+            seen.add(fact)
+            facts.append(fact)
 
-    # make it natural sentence
-    if len(evidence) == 1:
-        evidence_text = evidence[0]
+    # Fallback if nothing useful remains
+    if not facts:
+        return (
+            f"The model predicts that {row['entity']} belongs to the "
+            f"{row['predicted_label']} category because the available "
+            f"information is consistent with characteristics commonly found "
+            f"in this category."
+        )
+
+    # Build readable sentence
+    if len(facts) == 1:
+        reason = facts[0]
+
+    elif len(facts) == 2:
+        reason = f"{facts[0]} and {facts[1]}"
+
     else:
-        evidence_text = ", ".join(evidence[:-1]) + " and " + evidence[-1]
+        reason = ", ".join(facts[:-1]) + ", and " + facts[-1]
 
     return (
-        f"{row['entity']} is classified as {row['predicted_label']} because "
-        f"{evidence_text}. "
-        f"These signals are typical for this category in the knowledge graph."
+        f"The model predicts that {row['entity']} belongs to the "
+        f"{row['predicted_label']} category because the available information shows "
+        f"that it {reason}. Together, these characteristics are commonly associated "
+        f"with this category."
     )
 
 # ----------------------------
@@ -98,9 +134,9 @@ def main():
     os.makedirs(config.RESULTS_TABLES_DIR, exist_ok=True)
     os.makedirs(config.RESULTS_FIGURES_DIR, exist_ok=True)
 
-    # =========================================================
+    # ----------------------------
     # BASIC STATS
-    # =========================================================
+    # ----------------------------
     num_nodes = len(df)
 
     df["explanation_size"] = df["explanation_edges"].apply(
@@ -113,9 +149,9 @@ def main():
 
     avg_size = df["explanation_size"].mean()
 
-    # =========================================================
+    # ----------------------------
     # EVALUATION
-    # =========================================================
+    # ----------------------------
     eval_df = df.copy()
 
     sizes = eval_df["explanation_size"].astype(float)
@@ -129,9 +165,9 @@ def main():
         index=False
     )
 
-    # =========================================================
+    # ----------------------------
     # NATURAL LANGUAGE EXPLANATIONS
-    # =========================================================
+    # ----------------------------
     df["nl_explanation"] = df.apply(build_nl_explanation, axis=1)
 
     df.to_csv(
@@ -139,9 +175,9 @@ def main():
         index=False
     )
 
-    # =========================================================
+    # ----------------------------
     # RELATION IMPORTANCE
-    # =========================================================
+    # ----------------------------
     relation_counts = {}
 
     for row in df["explanation_edges"].fillna(""):
@@ -161,48 +197,33 @@ def main():
         index=False
     )
 
-    # =========================================================
+    # ----------------------------
     # FIGURES
-    # =========================================================
+    # ----------------------------
     plt.figure()
     df["predicted_label"].value_counts().plot(kind="bar")
     plt.title("Prediction Distribution")
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(
-            config.RESULTS_FIGURES_DIR,
-            "grad_prediction_distribution.png"
-        )
-    )
+    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_prediction_distribution.png"))
     plt.close()
 
     plt.figure()
     rel_df.head(10).plot(x="relation", y="importance", kind="bar")
     plt.title("Top Relations")
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(
-            config.RESULTS_FIGURES_DIR,
-            "grad_top_relations.png"
-        )
-    )
+    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_top_relations.png"))
     plt.close()
 
     plt.figure()
     df["explanation_size"].plot(kind="hist", bins=10)
     plt.title("Explanation Size Distribution")
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(
-            config.RESULTS_FIGURES_DIR,
-            "grad_explanation_size.png"
-        )
-    )
+    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_explanation_size.png"))
     plt.close()
 
-    # =========================================================
+    # ----------------------------
     # FIDELITY VS SPARSITY
-    # =========================================================
+    # ----------------------------
     plt.figure(figsize=(7, 5))
 
     plt.scatter(
@@ -217,11 +238,7 @@ def main():
 
     x_sorted = np.sort(eval_df["sparsity"])
 
-    plt.plot(
-        x_sorted,
-        p(x_sorted),
-        linewidth=2
-    )
+    plt.plot(x_sorted, p(x_sorted), linewidth=2)
 
     plt.grid(alpha=0.3)
     plt.xlabel("Sparsity")
@@ -230,33 +247,22 @@ def main():
 
     plt.tight_layout()
 
-    plt.savefig(
-        os.path.join(
-            config.RESULTS_FIGURES_DIR,
-            "grad_fidelity_vs_sparsity.png"
-        )
-    )
-
+    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_fidelity_vs_sparsity.png"))
     plt.close()
 
-    # =========================================================
+    # ----------------------------
     # CLASS-WISE ANALYSIS
-    # =========================================================
+    # ----------------------------
     plt.figure()
     eval_df.groupby("predicted_label")["fidelity"].mean().plot(kind="bar")
     plt.title("Class-wise Explanation Diversity")
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(
-            config.RESULTS_FIGURES_DIR,
-            "grad_class_explanation_strength.png"
-        )
-    )
+    plt.savefig(os.path.join(config.RESULTS_FIGURES_DIR, "grad_class_explanation_strength.png"))
     plt.close()
 
-    # =========================================================
+    # ----------------------------
     # SUMMARY
-    # =========================================================
+    # ----------------------------
     summary = pd.DataFrame([{
         "num_nodes": num_nodes,
         "avg_explanation_size": avg_size,
@@ -272,13 +278,10 @@ def main():
 
     print("Step 7 completed successfully (FINAL RESEARCH VERSION)")
 
-    # =========================================================
+    # ----------------------------
     # REPORT
-    # =========================================================
-    report_path = os.path.join(
-        config.RESULTS_TABLES_DIR,
-        "grad_report.md"
-    )
+    # ----------------------------
+    report_path = os.path.join(config.RESULTS_TABLES_DIR, "grad_report.md")
 
     sample = df.iloc[0]
     sample_edges = parse_edges(sample["explanation_edges"])
@@ -292,20 +295,15 @@ def main():
         f.write(f"- Avg explanation size: {avg_size:.2f}\n")
         f.write(f"- Relations discovered: {len(rel_df)}\n\n")
 
-        f.write("## 2. Explanation Behavior Analysis\n\n")
+        f.write("## 2. What This Model Learns\n\n")
         f.write(
-            "The model generates explanations based on subgraphs of DBpedia relations. "
-            "We observe variation in both compactness and relational diversity across nodes.\n\n"
+            "The model learns patterns from how real-world entities are connected in Wikipedia. "
+            "It uses graph structure instead of raw text.\n\n"
         )
 
-        f.write("## 3. Metric Interpretation\n\n")
+        f.write("## 3. How Predictions Are Made\n\n")
         f.write(
-            "- Sparsity: measures how compact the explanation is\n"
-            "- Fidelity: measures diversity of semantic relations used\n\n"
-        )
-
-        f.write(
-            "High fidelity with moderate sparsity indicates informative yet compact explanations.\n\n"
+            "Predictions are based on relational patterns such as occupation, education, and domain-specific links.\n\n"
         )
 
         f.write("## 4. Visual Summary\n\n")
@@ -322,19 +320,19 @@ def main():
             f"Predicted Label: {sample['predicted_label']}\n\n"
         )
 
-        f.write("Key relational evidence:\n\n")
+        f.write("Key connections:\n\n")
 
         for e in sample_edges[:7]:
             f.write(f"- {e}\n")
 
         f.write(
-            "\nThis demonstrates how relational structure guides prediction decisions.\n\n"
+            "\nThe model aggregates multiple signals instead of relying on a single feature.\n\n"
         )
 
         f.write("## 6. Key Insight\n\n")
         f.write(
-            "The model does not rely on a single type of relation but instead distributes "
-            "importance across multiple semantic edges, showing robustness in explanation structure.\n"
+            "Graph structure provides distributed evidence across multiple relation types, "
+            "improving robustness of predictions.\n"
         )
 
     print(f"[INFO] Report saved at: {report_path}")
