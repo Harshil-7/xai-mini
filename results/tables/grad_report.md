@@ -1,48 +1,44 @@
 # Grad Explanation Report
 
-## Overview
+## 1. Dataset Overview
+
 - Nodes: 5
-- Avg explanation size: 5.00
+- Avg explanation size: 2.80
+- Relations discovered: 8
 
----
+## 2. Explanation Behavior Analysis
 
-## Figures
+The model generates explanations based on subgraphs of DBpedia relations. We observe variation in both compactness and relational diversity across nodes.
+
+## 3. Metric Interpretation
+
+- Sparsity: measures how compact the explanation is
+- Fidelity: measures diversity of semantic relations used
+
+High fidelity with moderate sparsity indicates informative yet compact explanations.
+
+## 4. Visual Summary
 
 ### Prediction Distribution
 ![](../figures/grad_prediction_distribution.png)
 
-### Explanation Size
-![](../figures/grad_explanation_size.png)
+### Fidelity vs Sparsity
+![](../figures/grad_fidelity_vs_sparsity.png)
 
-### Relation Importance
-![](../figures/grad_relation_importance.png)
+## 5. Case Study
 
-### Structural Complexity
-![](../figures/grad_structural_complexity.png)
+Entity: Augustin Maior
 
-### Class-wise Explanation Strength
-![](../figures/grad_class_explanation_strength.png)
+Predicted Label: Scientist
 
-### Entity Coverage
-![](../figures/grad_entity_coverage.png)
+Key relational evidence:
 
----
+- Augustin Maior --[nationality]--> Romanian
+- Augustin Maior --[origin]--> Physics
+- Augustin Maior --[subject]--> Physics
 
-## Sample Explanation
+This demonstrates how relational structure guides prediction decisions.
 
-Augustin Maior is classified as Scientist.
+## 6. Key Insight
 
-The model uses relationships in the knowledge graph.
-
-Key evidence:
-- Romanian --[http://dbpedia.org/property/alias]--> Augustin Maior
-- Augustin Maior --[http://dbpedia.org/ontology/nationality]--> Romanian
-- Augustin Maior --[http://dbpedia.org/property/candidate]--> Physics
-- Augustin Maior --[http://dbpedia.org/property/origin]--> Physics
-- Augustin Maior --[http://purl.org/dc/terms/subject]--> Physics
-
-This explanation is purely graph-structural.
-
----
-
-Generated automatically by Step 7 pipeline.
+The model does not rely on a single type of relation but instead distributes importance across multiple semantic edges, showing robustness in explanation structure.

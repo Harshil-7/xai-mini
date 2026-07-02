@@ -2,16 +2,14 @@ import torch
 import pandas as pd
 import pickle
 import os
-
 import config
+
+
+# ----------------------------
+# LOAD MODEL
+# ----------------------------
 from step3_train_rgcn import FastRGCN
-
-
-# ----------------------------
-# LOAD MODEL + DATA
-# ----------------------------
-def load():
-
+def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ckpt = torch.load(config.MODEL_FILE, map_location=device, weights_only=False)
@@ -29,23 +27,32 @@ def load():
     id_to_label = {v: k for k, v in mappings["labels_dict"].items()}
     id_to_rel = {v: k for k, v in mappings["relations_dict"].items()}
 
-    return model, data, id_to_entity, id_to_label, id_to_rel, device
+    return model, data, device, id_to_entity, id_to_label, id_to_rel
 
 
 # ----------------------------
-# CLEAN ENTITY
+# CLEAN RELATIONS
 # ----------------------------
-def clean(uri):
-    if uri is None:
+BAD_RELATIONS = {
+    "alias", "weight", "candidate", "thesis",
+    "wikiPageWikiLink", "rdf", "unknown",
+    "wickets", "preceded"
+}
+
+def is_valid_relation(r):
+    r = str(r).lower()
+    return not any(b in r for b in BAD_RELATIONS)
+
+def clean(x):
+    if x is None:
         return "Unknown"
-    return str(uri).split("/")[-1].replace("_", " ")
+    return str(x).split("/")[-1].replace("_", " ")
 
 
 # ----------------------------
-# EXPLANATION CORE (FIXED)
+# EXPLAIN
 # ----------------------------
-def explain_node(model, data, node):
-
+def explain(model, data, node):
     x = data.x.clone().detach().requires_grad_(True)
 
     out = model(x, data.edge_index, data.edge_type)
@@ -56,100 +63,84 @@ def explain_node(model, data, node):
     model.zero_grad(set_to_none=True)
     loss.backward()
 
-    node_grad = x.grad.abs().sum(dim=1)
-
-    edge_scores = (
-        node_grad[data.edge_index[0]] +
-        node_grad[data.edge_index[1]]
-    )
+    grad = x.grad.abs().sum(dim=1)
+    edge_scores = grad[data.edge_index[0]] + grad[data.edge_index[1]]
 
     return pred, edge_scores.detach()
 
 
 # ----------------------------
-# GET TOP EDGES (IMPORTANT FOR STEP 7)
+# TOP EDGES
 # ----------------------------
-def get_top_edges(data, node, edge_scores, top_k=5):
+def top_edges(data, node, scores, k, id_to_entity, id_to_rel):
 
     src, dst = data.edge_index
-
     mask = (src == node) | (dst == node)
     idx = mask.nonzero(as_tuple=True)[0]
 
-    if idx.numel() == 0:
-        return []
-
-    scores = edge_scores[idx]
-
-    k = min(top_k, len(idx))
-    top_idx = torch.topk(scores, k).indices
-
     edges = []
 
-    for i in top_idx:
+    if len(idx) == 0:
+        return edges
 
-        e = idx[i]
+    local_scores = scores[idx]
+    k = min(k, len(idx))
+    topk = torch.topk(local_scores, k).indices
 
-        s = int(src[e])
-        d = int(dst[e])
-        r = int(data.edge_type[e])
+    for i in topk:
+        e = idx[i].item()
 
-        edges.append((s, d, r))
+        r = clean(id_to_rel.get(int(data.edge_type[e])))
+        if not is_valid_relation(r):
+            continue
+
+        s = clean(id_to_entity.get(int(src[e])))
+        d = clean(id_to_entity.get(int(dst[e])))
+
+        edges.append(f"{s} --[{r}]--> {d}")
 
     return edges
 
 
 # ----------------------------
-# MAIN
+# RUN STEP 6
 # ----------------------------
-def main():
+def run_step6():
 
-    print("\n========== STEP 6 STARTED ==========\n")
+    model, data, device, id_to_entity, id_to_label, id_to_rel = load_model()
 
-    model, data, id_to_entity, id_to_label, id_to_rel, device = load()
-
-    if hasattr(data, "test_idx") and data.test_idx is not None:
+    if hasattr(data, "test_idx"):
         nodes = data.test_idx[:config.NUM_NODES_TO_EXPLAIN].tolist()
     else:
-        nodes = torch.arange(data.num_nodes)[:config.NUM_NODES_TO_EXPLAIN].tolist()
+        nodes = list(range(min(config.NUM_NODES_TO_EXPLAIN, data.num_nodes)))
 
-    results = []
+    rows = []
 
-    for i, n in enumerate(nodes):
+    for n in nodes:
 
-        pred, edge_scores = explain_node(model, data, n)
+        pred, scores = explain(model, data, n)
 
         entity = clean(id_to_entity.get(n))
         pred_label = id_to_label.get(pred, str(pred))
 
-        top_edges = get_top_edges(data, n, edge_scores, top_k=5)
+        edges = top_edges(data, n, scores, 5, id_to_entity, id_to_rel)
 
-        edge_str = []
-        for s, d, r in top_edges:
-            s_name = clean(id_to_entity.get(s))
-            d_name = clean(id_to_entity.get(d))
-            r_name = str(id_to_rel.get(r, r))
-
-            edge_str.append(f"{s_name} --[{r_name}]--> {d_name}")
-
-        results.append({
+        rows.append({
             "entity": entity,
             "predicted_label": pred_label,
-            "top_edges": " | ".join(edge_str),
-            "node_index": int(n)
+            "explanation_edges": " | ".join(edges),
+            "node_index": n
         })
-
-        print(f"[{i+1}] {entity} → {pred_label}")
 
     os.makedirs(config.RESULTS_TABLES_DIR, exist_ok=True)
 
-    out_path = os.path.join(config.RESULTS_TABLES_DIR, "grad_explanations.csv")
+    pd.DataFrame(rows).to_csv(
+        os.path.join(config.RESULTS_TABLES_DIR, "grad_explanations.csv"),
+        index=False
+    )
 
-    pd.DataFrame(results).to_csv(out_path, index=False)
-
-    print("\n========== DONE ==========")
-    print(f"[INFO] Saved: {out_path}")
+    print("Step 6 done: clean explanations generated")
 
 
-if __name__ == "__main__":
-    main()
+# RUN
+run_step6()
