@@ -8,6 +8,9 @@ Output:
 
 import pickle
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import networkx as nx
 import pandas as pd
 import torch
 from torch_geometric.explain import Explainer, GNNExplainer
@@ -68,6 +71,120 @@ def describe_explanation(sub, node_index, inv_nodes, inv_relations, top_k):
 
     return entity_name, sentences
 
+CLASS_COLORS = {
+    "Athlete":       "#2196F3",
+    "MusicalArtist": "#E91E63",
+    "Politician":    "#FF9800",
+    "Scientist":     "#4CAF50",
+}
+ 
+ 
+def _truncate(text, max_len=28):
+    """Truncate long node labels so they fit inside graph nodes."""
+    return text if len(text) <= max_len else text[:max_len - 1] + "…"
+ 
+ 
+def visualize_explanation_human(entity_name, sentences, pred_label, true_label, fig_path):
+    """
+    Build a directed graph from the human-readable `sentences` list and
+    draw it with matplotlib + networkx.
+ 
+    Each sentence has the form:
+        "SRC_NAME --[PREDICATE]--> DST_NAME"
+    We parse that directly — no node indices involved.
+    """
+    G = nx.DiGraph()
+    edge_labels = {}
+ 
+    for sentence in sentences:
+        # parse "A --[rel]--> B"
+        try:
+            left, right = sentence.split("-->", 1)
+            src_part, rel_part = left.rsplit("--[", 1)
+            src  = src_part.strip()
+            rel  = rel_part.rstrip("]").strip()
+            dst  = right.strip()
+        except ValueError:
+            continue   # skip malformed sentences
+ 
+        # truncate very long object names for readability
+        src_short = _truncate(src)
+        dst_short = _truncate(dst)
+ 
+        G.add_node(src_short)
+        G.add_node(dst_short)
+        G.add_edge(src_short, dst_short, label=rel)
+        edge_labels[(src_short, dst_short)] = rel
+ 
+    if len(G.nodes) == 0:
+        return   # nothing to draw
+ 
+    entity_short = _truncate(entity_name)
+    correct      = (pred_label == true_label)
+    entity_color = CLASS_COLORS.get(pred_label, "#9C27B0")
+    node_colors  = [
+        entity_color if n == entity_short else "#ECEFF1"
+        for n in G.nodes
+    ]
+ 
+    # layout: put the entity node at centre, spread neighbours around it
+    if entity_short in G.nodes:
+        fixed_positions = {entity_short: (0, 0)}
+        pos = nx.spring_layout(G, seed=42, k=2.2, pos=fixed_positions, fixed=[entity_short])
+    else:
+        pos = nx.spring_layout(G, seed=42, k=2.2)
+ 
+    fig, ax = plt.subplots(figsize=(10, 7))
+ 
+    nx.draw_networkx_nodes(
+        G, pos, ax=ax,
+        node_color=node_colors,
+        node_size=2200,
+        edgecolors="#455A64",
+        linewidths=1.5,
+    )
+    nx.draw_networkx_labels(
+        G, pos, ax=ax,
+        font_size=7.5,
+        font_color="#212121",
+        font_weight="bold",
+    )
+    nx.draw_networkx_edges(
+        G, pos, ax=ax,
+        edge_color="#607D8B",
+        arrows=True,
+        arrowstyle="-|>",
+        arrowsize=18,
+        width=1.8,
+        connectionstyle="arc3,rad=0.08",
+        min_source_margin=22,
+        min_target_margin=22,
+    )
+    nx.draw_networkx_edge_labels(
+        G, pos, ax=ax,
+        edge_labels=edge_labels,
+        font_size=7,
+        font_color="#B71C1C",
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.75),
+    )
+ 
+    verdict = "✓ correct" if correct else f"✗ predicted {pred_label}"
+    ax.set_title(
+        f"GNNExplainer — {entity_name}\n"
+        f"True class: {true_label}   |   {verdict}",
+        fontsize=11, pad=12,
+    )
+ 
+    # legend: entity colour = predicted class
+    patch = mpatches.Patch(color=entity_color, label=f"Central entity ({pred_label})")
+    bg    = mpatches.Patch(color="#ECEFF1",    label="Neighbour node", ec="#455A64")
+    ax.legend(handles=[patch, bg], loc="lower left", fontsize=8)
+ 
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
 
 def main():
     print("[step4] Loading trained model ...")
@@ -105,7 +222,7 @@ def main():
             print(f"    {s}")
 
         fig_path = f"{config.RESULTS_FIGURES_DIR}/explanation_{entity_name.replace(' ', '_')}.png"
-        sub.visualize_graph(fig_path)
+        visualize_explanation_human(entity_name, sentences, pred_label, true_label, fig_path)
 
         records.append({
             "entity": entity_name,
